@@ -10,7 +10,7 @@ import {
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import styleIndex from "./(home)/index";
+//import styleIndex from "./(home)/index";
 import { SafeAreaView } from "react-native-safe-area-context";
 import mainStyles from "@/src/styles/mainStyle";
 import { User } from "@/models/types";

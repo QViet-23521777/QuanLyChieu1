@@ -4,6 +4,7 @@ import SettingTemplate from '@/src/Components/SettingTemplate';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import mainStyles from '@/src/styles/mainStyle';
 
+
 export default function NotiSettingScreen() {
   const [general, setGeneral] = useState(true);
   const [sound, setSound] = useState(false);
