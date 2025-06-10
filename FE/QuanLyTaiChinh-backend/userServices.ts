@@ -27,7 +27,7 @@ export const getUserField = async <K extends keyof User>(
     }
   };
 //thêm user
-export const addUser = async( userData: Omit<User, 'Id' | 'createdAt' | 'updatedAt'>)
+export const addUser = async( userData: Omit<User,'id'| 'createdAt' | 'updatedAt'>)
 :Promise<string> =>
 {
     return await addDocument(COLLECTION_NAME, userData);
@@ -114,19 +114,20 @@ export const login = async ( email: string, password: string): Promise<string> =
     }
 }
 //đăng ký
-export const register = async ( userData: Omit<User, 'Id' | 'createdAt' | 'updatedAt'>): Promise<string> =>
-{
-  try{
-    const user = await getUserByEmail(userData.email);
-    if(user)
-    {
-      throw new Error('Email đã tồn tại');
-    }
-    const Id = await addUser(userData);
-    return Id;
-  }
-  catch (error) {
+export const register = async (
+    userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
+    try {
+        const existingUsers = await getUserByEmail(userData.email);
+        
+        if (existingUsers && existingUsers.length > 0) {
+            throw new Error('Email đã tồn tại');
+        }
+        
+        const userId = await addUser(userData);
+        return userId;
+    } catch (error) {
         console.error('Lỗi khi đăng ký:', error);
         throw error;
     }
-}
+  }
