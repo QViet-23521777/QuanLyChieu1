@@ -32,7 +32,7 @@ export const getChatRoomField = async <K extends keyof ChatRoom>(
     }
 };
 //hàm thêm chatRoom
-export const addChatRoom = async (chatroomData: Omit<ChatRoom, 'Id' | 'createdAt' | 'updatedAt'>)
+export const addChatRoom = async (chatroomData: Omit<ChatRoom, 'id' | 'createdAt' | 'updatedAt'>)
 :Promise<string> =>{
     return await addDocument(COLLECTION_NAME, chatroomData);
 };

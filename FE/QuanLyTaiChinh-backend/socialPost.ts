@@ -34,7 +34,7 @@ export const getSocialField = async <K extends keyof SocialPost>(
     }
   };
 //thêm post
-export const addSocialPost = async ( postData: Omit<SocialPost, 'Id' | 'createdAt' | 'updatedAt'>) =>
+export const addSocialPost = async ( postData: Omit<SocialPost, 'id' | 'createdAt' | 'updatedAt'>) =>
 {
     return await addDocument(COLLECTION_NAME, postData);
 }

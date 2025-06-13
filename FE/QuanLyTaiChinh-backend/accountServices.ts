@@ -29,7 +29,7 @@ export const getAccountField = async <K extends keyof Account>(
     }
   };
 //thêm tài khoản
-export const addAccount = async(accountData: Omit<Account, 'Id' | 'createdAt' |'updatedAt'>)
+export const addAccount = async(accountData: Omit<Account, 'id' | 'createdAt' |'updatedAt'>)
 :Promise<string> =>{
     return await addDocument(COLLECTION_NAME,accountData);
 }

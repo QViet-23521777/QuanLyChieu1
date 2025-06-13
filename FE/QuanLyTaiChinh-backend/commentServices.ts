@@ -28,7 +28,7 @@ export const getCommentField = async <K extends keyof Comment>(
     }
   };
 //tạo comment
-export const addComment = async (commentData: Omit<Comment, 'Id' | 'createdAt' | 'updatedAt'>)
+export const addComment = async (commentData: Omit<Comment, 'id' | 'createdAt' | 'updatedAt'>)
 :Promise<string> => {
     return await addDocument(COLLECTION_NAME, commentData);
 }

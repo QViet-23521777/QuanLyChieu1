@@ -28,7 +28,7 @@ export const getMessageField = async <K extends keyof Message>(
     }
   };
 //tạo tin nhắn, gửi tin nhắn
-export const addMessage = async (messageData: Omit<Message, 'Id' | 'createdAt' | 'updatedAt'>)
+export const addMessage = async (messageData: Omit<Message, 'id' | 'createdAt' | 'updatedAt'>)
 :Promise<string> =>
 {
   return await addDocument(COLLECTION_NAME,messageData);

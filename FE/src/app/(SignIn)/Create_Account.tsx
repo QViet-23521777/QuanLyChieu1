@@ -158,7 +158,6 @@ export default function CreateAccountScreen() {
                 [
                     {
                         text: "OK",
-                        onPress: () => router.replace('/login') // Navigate to main app
                     }
                 ]
             );

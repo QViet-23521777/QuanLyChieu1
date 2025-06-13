@@ -23,7 +23,7 @@ export interface Family{
 }
 
 export interface Account{
-    Id: string;
+    id: string;
     name: string;
     type: 'cash' | 'bank' | 'credit' | 'saving' | 'others';
     balance: number;
@@ -94,7 +94,7 @@ export interface Comment {
 }
 
 export interface ChatRoom{
-    Id: string;
+    id: string;
     name? : string;
     isGroup: boolean;
     members: string[];
@@ -105,7 +105,7 @@ export interface ChatRoom{
 }
 
 export interface Message {
-    Id: string;
+    id: string;
     text: string;
     imageUrl?: string | null;
     senderId: string;
@@ -118,7 +118,7 @@ export interface Message {
 
 export interface SocialPost {
     id: string;
-    type: 'photo' | 'expense' | 'achievement';
+    type: 'photo' | 'expense' | 'achievement'| '';
     content: string;
     photoId: string[];
     transactionId: string[];
