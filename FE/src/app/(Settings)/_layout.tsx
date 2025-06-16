@@ -26,6 +26,7 @@ const RootLayout = () => {
             <Stack.Screen name='DeleteAccount' options={{ headerShown: true, title: 'Xóa tài khoản' }} />
             <Stack.Screen name='AISettings' options={{ headerShown: true, title: 'AI ChatBot' }} />
             <Stack.Screen name='TermOfService' options={{ headerShown: true, title: 'Điều khoản sử dụng' }} />
+            <Stack.Screen name='Account' options={{headerShown: false}} />
         </Stack>
     </UserProvider>
     )

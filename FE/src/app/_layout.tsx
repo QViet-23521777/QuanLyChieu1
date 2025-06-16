@@ -14,6 +14,8 @@ const RootLayout = () => {
             <Stack
                 screenOptions={{
                     headerTransparent: true,
+                    headerShown: true,
+                    title: ' ',
                     // headerLeft: () => <ProfileButton />,
                     headerRight: () => <AddButton />,
                     headerTitleAlign: 'center',
@@ -30,7 +32,8 @@ const RootLayout = () => {
                 <Stack.Screen name='search' options={{ headerShown: true, title: 'Tìm kiếm' }} />
                 <Stack.Screen name='calendar' options={{ headerShown: true, title: 'Lịch' }} />
                 <Stack.Screen name='transfer' options={{ headerShown: true, title: 'Giao dịch' }} />
-                <Stack.Screen name='groups' options={{ headerShown: true, title: 'Nhóm', headerRight: () => null }} />
+                <Stack.Screen name='groups' options={{ headerShown: false, title: 'Nhóm', headerRight: () => { return null; } }} />
+                <Stack.Screen name='(chat)' options={{ headerShown: false }} />
             </Stack>
         </CategoryProvider>
     </UserProvider>

@@ -61,7 +61,9 @@ const CreateAccountScreen = () => {
         familyId: '',
       };
 
-      await addAccount(newAcc);
+      const Id = await addAccount(newAcc);
+      await AsyncStorage.setItem('AccountId', Id);
+
       router.replace('/login');
     } catch (error) {
       console.error('Lỗi tạo tài khoản:', error);

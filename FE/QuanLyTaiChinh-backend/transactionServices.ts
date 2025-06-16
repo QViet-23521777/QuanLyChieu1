@@ -12,6 +12,7 @@ import { getAccountById, updateAccountBalance } from './accountServices';
 import { doc, serverTimestamp, collection, Timestamp } from 'firebase/firestore';
 import { RealtimeListenerService  } from './RealtimeListenerService';
 import { db } from '../firebaseConfig';
+import { getDoc } from 'firebase/firestore';
 
 const COLLECTION_NAME = 'Transaction';
 const COLLECTION_NAME1 = 'Account';
@@ -537,7 +538,7 @@ export const debugAllUserTransactions = async (userId: string): Promise<void> =>
     
     allTransactions.forEach((transaction, index) => {
       console.log(`\n🏷️  Giao dịch ${index + 1}:`);
-      console.log(`   ID: ${transaction.Id}`);
+      console.log(`   ID: ${transaction.id}`);
       console.log(`   Mô tả: ${transaction.decription}`);
       console.log(`   Số tiền: ${transaction.amount}`);
       console.log(`   Loại: ${transaction.type}`);
@@ -578,5 +579,112 @@ export const testDateFiltering = async (userId: string): Promise<void> => {
     console.log('🧪 === END TEST ===');
   } catch (error) {
     console.error('❌ Lỗi khi test:', error);
+  }
+};
+export const deleteAccountWithTransactions = async (
+  accountId: string,
+  userId: string
+): Promise<void> => {
+  try {
+    // Validate input parameters
+    if (!accountId || typeof accountId !== 'string' || accountId.trim() === '') {
+      throw new Error('AccountId không hợp lệ');
+    }
+    
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error('UserId không hợp lệ');
+    }
+
+    const cleanAccountId = accountId.trim();
+    const cleanUserId = userId.trim();
+
+    console.log(`🗑️ Bắt đầu xóa giao dịch của tài khoản ${cleanAccountId} của user ${cleanUserId}`);
+        
+    // 1. Kiểm tra tài khoản
+    const accountRef = doc(db, COLLECTION_NAME1, cleanAccountId);
+    const accountDoc = await getDoc(accountRef);
+        
+    if (!accountDoc.exists()) {
+      throw new Error('Tài khoản không tồn tại');
+    }
+        
+    const account = accountDoc.data() as Account;
+    if (account.userId !== cleanUserId) {
+      throw new Error('Không có quyền xóa giao dịch của tài khoản này');
+    }
+        
+    // 2. Lấy tất cả giao dịch với validation bổ sung
+    const relatedTransactions = await queryDocuments<Transaction>(
+      COLLECTION_NAME,
+      [
+        { field: 'accountId', operator: '==', value: cleanAccountId },
+        { field: 'userId', operator: '==', value: cleanUserId }
+      ]
+    );
+        
+    console.log(`📊 Tìm thấy ${relatedTransactions.length} giao dịch cần xóa`);
+        
+    if (relatedTransactions.length === 0) {
+      console.log('ℹ️ Không có giao dịch nào để xóa');
+      return;
+    }
+
+    // 3. Validate transaction data trước khi xử lý
+    const validTransactions = relatedTransactions.filter(transaction => {
+      if (!transaction.id || typeof transaction.id !== 'string') {
+        console.warn('⚠️ Giao dịch có ID không hợp lệ:', transaction);
+        return false;
+      }
+      return true;
+    });
+
+    if (validTransactions.length === 0) {
+      console.log('ℹ️ Không có giao dịch hợp lệ nào để xóa');
+      return;
+    }
+
+    console.log(`📊 Số giao dịch hợp lệ: ${validTransactions.length}/${relatedTransactions.length}`);
+        
+    // 4. Xử lý theo batch (500 operations/batch)
+    const batchSize = 500;
+    const batches = [];
+        
+    for (let i = 0; i < validTransactions.length; i += batchSize) {
+      batches.push(validTransactions.slice(i, i + batchSize));
+    }
+        
+    console.log(`📦 Chia thành ${batches.length} batch(es)`);
+        
+    // 5. Xóa từng batch với error handling
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`🔄 Đang xử lý batch ${i + 1}/${batches.length} (${batch.length} items)`);
+            
+      try {
+        await executeTransaction(async (transaction) => {
+          for (const transactionData of batch) {
+            // Double check ID before creating reference
+            if (transactionData.id && typeof transactionData.id === 'string' && transactionData.id.trim() !== '') {
+              const transactionRef = doc(db, COLLECTION_NAME, transactionData.id.trim());
+              transaction.delete(transactionRef);
+            } else {
+              console.warn('⚠️ Bỏ qua giao dịch có ID không hợp lệ:', transactionData.id);
+            }
+          }
+        });
+            
+        console.log(`✅ Hoàn thành batch ${i + 1}/${batches.length}`);
+      } catch (batchError) {
+        console.error(`❌ Lỗi khi xử lý batch ${i + 1}:`, batchError);
+        // Có thể tiếp tục với batch tiếp theo hoặc throw error
+        throw new Error(`Lỗi khi xử lý batch ${i + 1}: ${batchError}`);
+      }
+    }
+        
+    console.log(`✅ Đã xóa tất cả ${validTransactions.length} giao dịch`);
+      
+  } catch (error) {
+    console.error('❌ Lỗi khi xóa giao dịch của tài khoản:', error);
+    throw error;
   }
 };

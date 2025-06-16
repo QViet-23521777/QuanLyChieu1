@@ -11,7 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  StatusBar, // Thêm StatusBar import
+  StatusBar,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,11 +31,11 @@ import {
   getChatRoomById,
 } from '@/QuanLyTaiChinh-backend/chatroomServices';
 import { Timestamp } from 'firebase/firestore';
-
-// TYPE DEFINITIONS
+import { router } from 'expo-router';
 type RootStackParamList = {
   ChatScreen: { chatRoomId: string; chatRoom?: ChatRoom };
   ChatRoomScreen: undefined;
+  ChatInfoScreen: { chatRoomId: string; chatRoom?: ChatRoom }; // Thêm màn hình info
 };
 
 type ChatScreenRouteProp = RouteProp<RootStackParamList, 'ChatScreen'>;
@@ -97,7 +98,7 @@ const ChatScreen: React.FC = () => {
   const [inputText, setInputText] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [showMenu, setShowMenu] = useState<boolean>(false);
+  const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
 
   const [chatRoomId, setChatRoomId] = useState<string | null>(null);
   const [currentChatRoom, setCurrentChatRoom] = useState<ChatRoom | null>(null);
@@ -106,6 +107,29 @@ const ChatScreen: React.FC = () => {
 
   const flatListRef = useRef<FlatList>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+
+  // Handle keyboard events
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setTimeout(() => scrollToBottom(), 100);
+      }
+    );
+
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener?.remove();
+      keyboardWillHideListener?.remove();
+    };
+  }, []);
 
   // Initialize chat với error handling tốt hơn
   useEffect(() => {
@@ -372,24 +396,9 @@ const ChatScreen: React.FC = () => {
     }
   };
 
-  const handleMenuAction = (action: string) => {
-    setShowMenu(false);
-    
-    switch (action) {
-      case 'refresh':
-        refreshMessages();
-        break;
-      case 'addMember':
-        Alert.alert('Thông báo', 'Tính năng thêm thành viên đang được phát triển');
-        break;
-      case 'addFile':
-        Alert.alert('Thông báo', 'Tính năng thêm file đang được phát triển');
-        break;
-      case 'info':
-        const info = `Tên: ${currentChatRoom?.name || 'Không xác định'}\nLoại: ${currentChatRoom?.isGroup ? 'Nhóm chat' : 'Chat riêng tư'}\nSố tin nhắn: ${messages.length}`;
-        Alert.alert('Thông tin nhóm', info);
-        break;
-    }
+  // Chuyển sang màn hình thông tin chat
+  const handleChatInfo = () => {
+    router.push('/info'); // hoặc đường dẫn cụ thể đến trang info của bạn
   };
 
   const renderMessage = ({ item }: { item: Message }) => (
@@ -402,7 +411,6 @@ const ChatScreen: React.FC = () => {
   if (loading) {
     return (
       <>
-        {/* Thêm StatusBar configuration */}
         <StatusBar 
           barStyle="light-content" 
           backgroundColor="#4A90E2" 
@@ -422,95 +430,55 @@ const ChatScreen: React.FC = () => {
 
   return (
     <>
-      {/* Force StatusBar configuration */}
       <StatusBar 
         barStyle="light-content" 
         backgroundColor="#4A90E2" 
         translucent={false}
-        hidden={true}
+        hidden={false}
       />
       
       <SafeAreaView style={[mainStyles.container, styles.container]} edges={['top', 'bottom']}>
-        {/* Header - Đã bỏ paddingTop */}
-        {/* <View style={styles.header}> */}
-          {/* <TouchableOpacity
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
             style={styles.backButton}
             onPress={handleGoBack}
             activeOpacity={0.7}
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity> */}
+          </TouchableOpacity>
           
-          {/* <View style={styles.headerInfo}>
+          <View style={styles.headerInfo}>
             <Text style={styles.headerTitle} numberOfLines={1}>
               {currentChatRoom?.name || 'Chat'}
             </Text>
             <Text style={styles.headerSubtitle}>
               {messages.length} tin nhắn
             </Text>
-          </View> */}
+          </View>
           
-          {/* <View style={styles.menuContainer}>
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              style={styles.addButton} 
+              onPress={() => Alert.alert('Thông báo', 'Tính năng thêm thành viên đang được phát triển')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add" size={24} color="#fff" />
+            </TouchableOpacity>
+            
+            {/* Thay đổi từ dropdown menu thành navigation */}
             <TouchableOpacity 
               style={styles.menuButton} 
-              onPress={() => setShowMenu(!showMenu)}
+              onPress={handleChatInfo}
               activeOpacity={0.7}
             >
               <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
             </TouchableOpacity>
-            
-            {showMenu && (
-              <View style={styles.dropdownMenu}>
-                <TouchableOpacity 
-                  style={styles.menuItem} 
-                  onPress={() => handleMenuAction('refresh')}
-                >
-                  <Ionicons name="refresh" size={18} color="#333" />
-                  <Text style={styles.menuItemText}>Làm mới</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.menuItem} 
-                  onPress={() => handleMenuAction('addMember')}
-                >
-                  <Ionicons name="person-add" size={18} color="#333" />
-                  <Text style={styles.menuItemText}>Thêm thành viên</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.menuItem} 
-                  onPress={() => handleMenuAction('addFile')}
-                >
-                  <Ionicons name="attach" size={18} color="#333" />
-                  <Text style={styles.menuItemText}>Thêm file</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.menuItem, styles.lastMenuItem]} 
-                  onPress={() => handleMenuAction('info')}
-                >
-                  <Ionicons name="information-circle" size={18} color="#333" />
-                  <Text style={styles.menuItemText}>Thông tin</Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         </View>
 
-        {/* Overlay */}
-        {/*showMenu && (
-          <TouchableOpacity 
-            style={styles.overlay} 
-            onPress={() => setShowMenu(false)}
-            activeOpacity={1}
-          />
-        )} */}
-
-        <KeyboardAvoidingView
-          style={styles.chatContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
+        {/* Bỏ KeyboardAvoidingView và sử dụng cách khác */}
+        <View style={[styles.chatContainer, { paddingBottom: keyboardHeight }]}>
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -538,6 +506,9 @@ const ChatScreen: React.FC = () => {
               multiline
               maxLength={1000}
               textAlignVertical="top"
+              onFocus={() => {
+                setTimeout(() => scrollToBottom(), 200);
+              }}
             />
             <TouchableOpacity
               style={[
@@ -559,7 +530,7 @@ const ChatScreen: React.FC = () => {
               )}
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </>
   );
@@ -586,7 +557,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#4A90E2',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    // Đã bỏ paddingTop: 50 - SafeAreaView sẽ xử lý việc này
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -611,52 +581,18 @@ const styles = StyleSheet.create({
     color: '#E8F2FF',
     marginTop: 2,
   },
-  menuContainer: {
-    position: 'relative',
-    zIndex: 1000,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addButton: {
+    padding: 8,
+    borderRadius: 20,
+    marginRight: 8,
   },
   menuButton: {
     padding: 8,
     borderRadius: 20,
-  },
-  dropdownMenu: {
-    position: 'absolute',
-    top: 45,
-    right: 0,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-    minWidth: 180,
-    zIndex: 1001,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  lastMenuItem: {
-    borderBottomWidth: 0,
-  },
-  menuItemText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#333',
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'transparent',
-    zIndex: 999,
   },
   chatContainer: {
     flex: 1,

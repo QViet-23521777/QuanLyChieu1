@@ -1,6 +1,7 @@
 import { addDoc, updateDoc } from 'firebase/firestore';
-import { ChatRoom, Message } from '../models/types';
+import { ChatRoom, Message, User } from '../models/types';
 import { getMessageById } from './messageServices';
+import { getUserById } from './userServices';
 import {
     addDocument,
     deleteDocument,
@@ -45,7 +46,7 @@ export const getChatRoomById = async (chatroomId: string)
 export const getChatRoomByMemberId = async ( memberId: string)
 :Promise<ChatRoom[] | null> =>{
     return await queryDocuments<ChatRoom>(COLLECTION_NAME, [{
-        field: "membersId",
+        field: "members",
         operator: "array-contains",
         value: memberId
     }])
@@ -64,6 +65,49 @@ export const listenToMessages = (chatRoomId: string, callback: (messages: Messag
     [{ field: 'chatroomId', operator: '==', value: chatRoomId }],
     callback,
   );
+};
+export const addMemberToChatRoom = async (chatroomId: string, userId: string): Promise<void> => {
+  try {
+    const chat = await getChatRoomById(chatroomId);
+    if (!chat) {
+      console.error(`ChatRoom với ID ${chatroomId} không tồn tại`);
+      return;
+    }
+    
+    if (!chat.members.includes(userId)) {
+      const updateMembers = [...chat.members, userId];
+      // SỬA: Dùng đúng field name "members" thay vì "messageId"
+      await updateDocument(COLLECTION_NAME, chatroomId, { members: updateMembers });
+      console.log(`Đã thêm user ${userId} vào chatroom ${chatroomId}`);
+    } else {
+      console.log(`User ${userId} đã là thành viên của chatroom ${chatroomId}`);
+    }
+  } catch (error) {
+    console.error('Lỗi khi thêm thành viên vào chatroom:', error);
+    throw error;
+  }
+};
+
+export const removeMemberFromChatRoom = async (chatroomId: string, userId: string): Promise<void> => {
+  try {
+    const chat = await getChatRoomById(chatroomId);
+    if (!chat) {
+      console.error(`ChatRoom với ID ${chatroomId} không tồn tại`);
+      return;
+    }
+    
+    if (chat.members.includes(userId)) {
+      const updateMembers = chat.members.filter(id => id !== userId);
+      // SỬA: Dùng đúng field name "members" thay vì "membersId"
+      await updateDocument(COLLECTION_NAME, chatroomId, { members: updateMembers });
+      console.log(`Đã xóa user ${userId} khỏi chatroom ${chatroomId}`);
+    } else {
+      console.log(`User ${userId} không phải là thành viên của chatroom ${chatroomId}`);
+    }
+  } catch (error) {
+    console.error('Lỗi khi xóa thành viên khỏi chatroom:', error);
+    throw error;
+  }
 };
 //thêm tin nhắn vào
 export const addMessageToChatRoom = async ( chatroomId:string, mesageId: string): Promise<void> =>{

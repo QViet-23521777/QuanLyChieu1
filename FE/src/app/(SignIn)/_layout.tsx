@@ -15,7 +15,7 @@ const RootLayout = () => {
                 // headerLeft: () => <ProfileButton />,
                 headerTitleAlign: 'center',
             }}>
-            <Stack.Screen name='login' options={{ title: 'Cài đặt' }} />
+            {/* <Stack.Screen name='login' options={{ title: 'Cài đặt' }} /> */}
             <Stack.Screen name='Create_Account' options={{ headerShown: true, title: 'Đăng ký tài khoản' }} />
             <Stack.Screen name='Forgot_Password' options={{ headerShown: true, title: 'Quên mật khẩu' }} />
             <Stack.Screen name='Security_Pin' options={{ headerShown: true, title: 'OTP' }} />

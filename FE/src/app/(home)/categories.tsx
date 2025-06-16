@@ -176,3 +176,4 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
 });
+/* có gì đó đã render tự động tìm kiếm và thay đổi*/ 

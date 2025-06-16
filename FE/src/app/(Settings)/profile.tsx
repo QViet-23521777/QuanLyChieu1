@@ -10,7 +10,6 @@ import {
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-//import styleIndex from "./(home)/index";
 import { SafeAreaView } from "react-native-safe-area-context";
 import mainStyles from "@/src/styles/mainStyle";
 import { User } from "@/models/types";
@@ -78,17 +77,6 @@ export default function ProfileScreen() {
         loadUserData();
     }, []);
 
-    // Refresh user data khi component được focus lại
-    /*useEffect(() => {
-        const unsubscribe = router.addListener?.('focus', () => {
-            if (userId) {
-                refreshUserData();
-            }
-        });
-
-        return unsubscribe;
-    }, [userId, router]);*/
-
     // Function để refresh user data
     const refreshUserData = async () => {
         if (!userId) return;
@@ -138,6 +126,20 @@ export default function ProfileScreen() {
                 </Text>
             </SafeAreaView>
             <View style={mainStyles.bottomeSheet}>
+                {/* NEW: Account Money Section */}
+                <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={() => router.push("../Account")}>
+                    <View style={styles.menuIcon}>
+                        <Ionicons
+                            name="wallet-outline"
+                            size={24}
+                            color="#fff"
+                        />
+                    </View>
+                    <Text style={styles.menuText}>Tài Khoản Tiền</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                     style={styles.menuItem}
                     onPress={() => router.push("../ProfileSetting")}>

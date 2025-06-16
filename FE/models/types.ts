@@ -46,7 +46,7 @@ export interface Category{
 }
 
 export interface Transaction{
-    Id: string;
+    id: string;
     type: 'income' | 'expense';
     amount: number;
     decription: string | '';

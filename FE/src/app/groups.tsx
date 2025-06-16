@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
-  View,
   StyleSheet,
   FlatList,
   Text,
   TouchableOpacity,
   Alert,
   RefreshControl,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, router } from 'expo-router';
+import { useFocusEffect, router, useNavigation } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import mainStyles from '@/src/styles/mainStyle';
 import { ChatRoom } from '@/models/types';
@@ -26,6 +26,8 @@ const ChatRoomScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  
+  const navigation = useNavigation();
 
   useEffect(() => {
     loadUserInfo();
@@ -38,6 +40,32 @@ const ChatRoomScreen: React.FC = () => {
       }
     }, [userId])
   );
+
+  // Cấu hình header với button
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: 'Danh sách nhóm chat',
+      headerShown: true,
+      headerRight: () => (
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={handleCreateNewChatRoom}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add" size={24} color="#fff" />
+        </TouchableOpacity>
+      ),
+      headerStyle: {
+        backgroundColor: '#4A90E2',
+      },
+      headerTintColor: '#fff',
+      headerTitleStyle: {
+        fontWeight: 'bold',
+        fontSize: 18,
+      },
+      headerTitleAlign: 'left',
+    });
+  }, [navigation]);
 
   const loadUserInfo = async () => {
     try {
@@ -59,10 +87,30 @@ const ChatRoomScreen: React.FC = () => {
     try {
       setLoading(true);
       const rooms = await getChatRoomByMemberId(userId);
-      setChatRooms(rooms || []);
+      
+      // Kiểm tra xem rooms có phải là mảng không
+      if (Array.isArray(rooms)) {
+        console.log('Loaded chat rooms:', rooms);
+        console.log('Number of rooms:', rooms.length);
+        
+        // Log từng room để debug
+        rooms.forEach((room, index) => {
+          console.log(`Room ${index}:`, {
+            id: room.id,
+            name: room.name,
+            // Log thêm các thuộc tính khác nếu cần
+          });
+        });
+        
+        setChatRooms(rooms);
+      } else {
+        console.log('Rooms is not an array:', rooms);
+        setChatRooms([]);
+      }
     } catch (error) {
       console.error('Error loading chat rooms:', error);
       Alert.alert('Lỗi', 'Không thể tải danh sách chat rooms');
+      setChatRooms([]); // Set về mảng rỗng khi có lỗi
     } finally {
       setLoading(false);
     }
@@ -76,6 +124,7 @@ const ChatRoomScreen: React.FC = () => {
 
   const handleChatRoomPress = (chatRoom: ChatRoom) => {
     setSelectedRoomId(chatRoom.id);
+    
     router.push({
       pathname: '/(chat)/chatscreen',
       params: {
@@ -83,7 +132,7 @@ const ChatRoomScreen: React.FC = () => {
         chatRoom: JSON.stringify(chatRoom.name),
       },
     });
-    console.log(chatRoom.name);
+    console.log('Selected chat room:', chatRoom.name);
   };
 
   const handleDeleteChatRoom = async (chatRoomId: string) => {
@@ -107,7 +156,9 @@ const ChatRoomScreen: React.FC = () => {
   };
 
   const handleCreateNewChatRoom = () => {
-    Alert.alert('Thông báo', 'Chức năng tạo chat room mới đang được phát triển');
+    router.push('/(chat)/newchat');
+    // Bỏ alert này nếu không cần thiết
+    // Alert.alert('Thông báo', 'Chức năng tạo chat room mới đang được phát triển');
   };
 
   const renderChatRoomItem = ({ item }: { item: ChatRoom }) => (
@@ -134,19 +185,8 @@ const ChatRoomScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={[mainStyles.container, styles.container]}>
-      {/* Header */}
-      <View style={styles.header}>
-        {/* <Text style={styles.headerTitle}>Danh sách nhóm chat</Text> */}
-        
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleCreateNewChatRoom}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add" size={24} color="#000" />
-        </TouchableOpacity>
-      </View>
-
+      {/* Đã loại bỏ header custom, sử dụng header của navigation */}
+      
       {/* Chat Rooms List */}
       <FlatList
         data={chatRooms}
@@ -173,28 +213,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f0f4f8',
   },
-  header: {
-    flexDirection: 'row',
+  // Style cho button trong header
+  headerButton: {
+    padding: 8,
+    marginRight: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 16,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    backgroundColor: '#4A90E2',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'left',
-  },
-  addButton: {
-    padding: 4,
+    justifyContent: 'center',
   },
   listContainer: {
     flexGrow: 1,
@@ -250,6 +276,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-});
+});  
 
 export default ChatRoomScreen;

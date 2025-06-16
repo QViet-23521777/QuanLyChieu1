@@ -161,6 +161,7 @@ export default function CreateAccountScreen() {
                     }
                 ]
             );
+            router.replace('/CreateAccountfortrans');
         } catch (error: any) {
             console.error("Lỗi đăng ký:", error);
             Alert.alert(
