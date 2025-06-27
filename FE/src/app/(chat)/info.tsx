@@ -33,7 +33,7 @@ interface Member {
   id: string;
   name: string;
   email: string;
-  isAdmin?: boolean;
+  isAdmin: boolean;
 }
 
 const ChatInfoScreen: React.FC = () => {
@@ -80,7 +80,7 @@ const ChatInfoScreen: React.FC = () => {
 
   const initializeChatRoomId = async () => {
     try {
-      let roomId = route.params?.chatRoomId;
+      let roomId: string | null = route.params?.chatRoomId || null;
       if (!roomId) {
         roomId = await AsyncStorage.getItem('currentChatRoomId');
       }
@@ -122,40 +122,108 @@ const ChatInfoScreen: React.FC = () => {
       }
       setChatRoom(chatRoomData);
 
-      // Load members
-      const membersData: Member[] = [];
+      // Kiểm tra members array có tồn tại không
       const memberIds = chatRoomData.members || [];
-      
-      for (const memberId of memberIds) {
-        try {
-          if (memberId) {
+      console.log("Số lượng thành viên là: " + memberIds.length);
+      console.log("Member IDs:", memberIds); // DEBUG: Xem danh sách memberIds
+
+      // Kiểm tra nếu không có members
+      if (memberIds.length === 0) {
+        console.log("Không có members trong chatRoom");
+        setMembers([]);
+        setIsCurrentUserAdmin(chatRoomData.createdBy === userId);
+        return;
+      }
+
+      // Load members với Promise.allSettled để tránh lỗi một user ảnh hưởng toàn bộ
+      const memberPromises = memberIds
+        .filter((memberId): memberId is string => {
+          const isValid = memberId != null && memberId.trim() !== '';
+          if (!isValid) {
+            console.log("Invalid member ID:", memberId); // DEBUG
+          }
+          return isValid;
+        })
+        .map(async (memberId: string): Promise<Member | null> => {
+          try {
+            console.log("Loading user:", memberId); // DEBUG
             const user = await getUserById(memberId);
-            if (user) {
-              membersData.push({
+            console.log("User data:", user); // DEBUG
+            
+            
+              const member = {
                 id: user.id,
                 name: user.name || 'Không có tên',
                 email: user.email || '',
                 isAdmin: chatRoomData.createdBy === user.id,
-              });
-            }
+              };
+              console.log("Created member:", member); // DEBUG
+              return member;
+           
+          } catch (error) {
+            console.error('Error getting user:', memberId, error);
+            return null;
           }
-        } catch (error) {
-          console.error('Error getting user:', memberId, error);
+        });
+
+      console.log("Total member promises:", memberPromises.length); // DEBUG
+
+      const memberResults = await Promise.allSettled(memberPromises);
+      console.log("Promise results:", memberResults); // DEBUG
+      
+      // Xử lý kết quả từ Promise.allSettled
+      const membersData: Member[] = [];
+      for (const result of memberResults) {
+        if (result.status === 'fulfilled' && result.value !== null) {
+          membersData.push(result.value);
+        } else if (result.status === 'rejected') {
+          console.log("Promise rejected:", result.reason); // DEBUG
         }
       }
-      setMembers(membersData);
+
+      console.log("Final members count:", membersData.length); // DEBUG
+      console.log("Final members data:", membersData); // DEBUG
+
+      // Nếu không có member nào được load thành công, thử tạo fallback
+      if (membersData.length === 0 && memberIds.length > 0) {
+        console.log("WARNING: Không có member nào được load thành công!");
+        // Tạo fallback members để hiển thị
+        const fallbackMembers = memberIds.map(id => ({
+          id,
+          name: 'Người dùng không xác định',
+          email: '',
+          isAdmin: chatRoomData.createdBy === id,
+        }));
+        setMembers(fallbackMembers);
+      } else {
+        setMembers(membersData);
+      }
 
       // Kiểm tra quyền admin
       setIsCurrentUserAdmin(chatRoomData.createdBy === userId);
 
-      // Load available users để thêm
-      const users = await getAllUsers();
-      if (Array.isArray(users)) {
-        const available = users.filter(user => 
-          user && user.id && !memberIds.includes(user.id)
-        );
-        setAvailableUsers(available);
-        setFilteredUsers(available);
+      // Load available users để thêm (song song với load members)
+      try {
+        const users = await getAllUsers();
+        if (Array.isArray(users)) {
+          const available = users.filter(user => 
+            user && 
+            user.id && 
+            user.id.trim() !== '' && 
+            !memberIds.includes(user.id)
+          );
+          setAvailableUsers(available);
+          setFilteredUsers(available);
+        } else {
+          console.warn('getAllUsers không trả về array:', users);
+          setAvailableUsers([]);
+          setFilteredUsers([]);
+        }
+      } catch (error) {
+        console.error('Error loading available users:', error);
+        // Không block toàn bộ UI nếu load available users thất bại
+        setAvailableUsers([]);
+        setFilteredUsers([]);
       }
 
     } catch (error) {

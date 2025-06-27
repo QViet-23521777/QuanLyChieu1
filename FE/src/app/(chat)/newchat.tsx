@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect, useEffect } from 'react';
+import React, { useState, useLayoutEffect, useEffect,useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,62 +15,61 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useNavigation } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import mainStyles from '@/src/styles/mainStyle';
-import {ChatRoom, User } from '@/models/types';
+import { ChatRoom, User } from '@/models/types';
 import { getAllUsers } from '@/QuanLyTaiChinh-backend/userServices';
 import { addChatRoom } from '@/QuanLyTaiChinh-backend/chatroomServices';
+
 const NewChatRoomScreen: React.FC = () => {
   const [chatRoomName, setChatRoomName] = useState<string>('');
-  const [membersInput, setMembersInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [user, setUser] = useState<User[]>([]);
   const [userId, setUserId] = useState<string>('');
   const [selectedMembers, setSelectedMembers] = useState<User[]>([]);
   const [showMemberModal, setShowMemberModal] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  
-  const navigation = useNavigation();
+  const selectedMembersRef = useRef<User[]>([]);
 
+useEffect(() => {
+  selectedMembersRef.current = selectedMembers;
+}, [selectedMembers]);
+  const navigation = useNavigation();
+  
+  // Fetch all users
   useEffect(() => {
     const fetchAllUser = async () => {
-      const u = await getAllUsers();
-      setUser(u);
-    }
+      try {
+        const u = await getAllUsers();
+        console.log('Fetched users:', u);
+        setUser(u);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    };
     fetchAllUser();
-  }, [])
+  }, []);
 
+  // Fetch current user ID
   useEffect(() => {
     const fetchUserId = async () => {
-      const uId = await AsyncStorage.getItem("userId");
-      if(uId) {
-        setUserId(uId);
+      try {
+        const uId = await AsyncStorage.getItem("userId");
+        console.log('Current user ID:', uId);
+        if (uId) {
+          setUserId(uId);
+        }
+      } catch (error) {
+        console.error('Error fetching user ID:', error);
       }
-    }
+    };
     fetchUserId();
-  }, [])
+  }, []);
 
-  // Cập nhật membersInput khi selectedMembers thay đổi
-  useEffect(() => {
-    const memberIds = selectedMembers.map(member => member.id).join(', ');
-    setMembersInput(memberIds);
-  }, [selectedMembers]);
+  const isGroup = selectedMembers.length >= 2; // Changed from 3 to 2 since we'll add current user
+  const canCreate = selectedMembers.length > 0;
 
-  // Tách members từ input (phân tách bằng dấu phẩy, xuống dòng, hoặc dấu chấm phẩy)
-  const getMembersFromInput = (): string[] => {
-    if (!membersInput.trim()) return [];
-    
-    return membersInput
-      .split(/[,;\n]/) // Tách bằng dấu phẩy, chấm phẩy, hoặc xuống dòng
-      .map(member => member.trim())
-      .filter(member => member.length > 0);
-  };
-
-  const members = getMembersFromInput();
-  const isGroup = members.length >= 3;
-  const canCreate = members.length > 0;
-
-  // Lọc danh sách user theo search query và loại bỏ current user
+  // Filter users - exclude current user and apply search
   const filteredUsers = user.filter(u => {
-    if (u.id === userId) return false; // Loại bỏ current user
+    if (u.id === userId) return false; // Exclude current user
     
     const matchesSearch = searchQuery === '' || 
       (u.name && u.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -80,172 +79,206 @@ const NewChatRoomScreen: React.FC = () => {
     return matchesSearch;
   });
 
-  // Xử lý chọn/bỏ chọn member
+  // Toggle member selection with better logging
   const toggleMemberSelection = (selectedUser: User) => {
-    setSelectedMembers(prev => {
-      const isSelected = prev.some(member => member.id === selectedUser.id);
-      if (isSelected) {
-        return prev.filter(member => member.id !== selectedUser.id);
-      } else {
-        return [...prev, selectedUser];
-      }
-    });
-  };
+  console.log('Toggling member:', selectedUser.name, selectedUser.id);
+  
+  setSelectedMembers(prev => {
+    const isSelected = prev.some(member => member.id === selectedUser.id);
+    console.log('Is already selected:', isSelected);
 
-  // Kiểm tra xem user có được chọn hay không
-  const isMemberSelected = (user: User): boolean => {
-    return selectedMembers.some(member => member.id === user.id);
-  };
+    const newSelection = isSelected
+      ? prev.filter(member => member.id !== selectedUser.id)
+      : [...prev, selectedUser];
 
-  // Đóng modal và clear search
-  const closeMemberModal = () => {
+    console.log(`${isSelected ? 'Removing' : 'Adding'} member, new count:`, newSelection.length);
+    console.log('New selected members:', newSelection.map(m => m.name));
+
+    return newSelection;
+  });
+};
+
+
+  // Check if user is selected
+  const isMemberSelected = useCallback((checkUser: User): boolean => {
+    const isSelected = selectedMembers.some(member => member.id === checkUser.id);
+    return isSelected;
+  }, [selectedMembers]);
+
+  // Close modal and clear search
+  const closeMemberModal = useCallback(() => {
     setShowMemberModal(false);
     setSearchQuery('');
-  };
+  }, []);
+const handleCreateChatRoomWrapper = () => {
+  handleCreateChatRoom(selectedMembersRef.current);
+};
+  // Header configuration
+  // Header configuration
+useLayoutEffect(() => {
+  navigation.setOptions({
+    title: 'Tạo chat mới',
+    headerShown: true,
+    headerLeft: () => (
+      <TouchableOpacity
+        style={styles.headerButton}
+        onPress={() => router.back()}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="arrow-back" size={24} color="#fff" />
+      </TouchableOpacity>
+    ),
+    headerRight: () => (
+      <TouchableOpacity
+        style={[
+          styles.headerButton,
+          { opacity: canCreate ? 1 : 0.5 }
+        ]}
+        onPress={handleCreateChatRoomWrapper} // ✅ Dùng wrapper đã sửa
+        disabled={!canCreate || loading}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.headerButtonText}>
+          {loading ? 'Đang tạo...' : 'Tạo'}
+        </Text>
+      </TouchableOpacity>
+    ),
+    headerStyle: {
+      backgroundColor: '#4A90E2',
+    },
+    headerTintColor: '#fff',
+    headerTitleStyle: {
+      fontWeight: 'bold',
+      fontSize: 18,
+    },
+    headerTitleAlign: 'center',
+  });
+}, [navigation, canCreate, loading]);
 
-  // Cấu hình header
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: 'Tạo chat mới',
-      headerShown: true,
-      headerLeft: () => (
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-      ),
-      headerRight: () => (
-        <TouchableOpacity
-          style={[
-            styles.headerButton,
-            { opacity: canCreate ? 1 : 0.5 }
-          ]}
-          onPress={handleCreateChatRoom}
-          disabled={!canCreate || loading}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.headerButtonText}>
-            {loading ? 'Đang tạo...' : 'Tạo'}
-          </Text>
-        </TouchableOpacity>
-      ),
-      headerStyle: {
-        backgroundColor: '#4A90E2',
-      },
-      headerTintColor: '#fff',
-      headerTitleStyle: {
-        fontWeight: 'bold',
-        fontSize: 18,
-      },
-      headerTitleAlign: 'center',
-    });
-  }, [navigation, canCreate, loading]);
+// Sửa handleCreateChatRoom để nhận selectedMembers làm tham số
+const handleCreateChatRoom = async (members: User[]) => {
+  console.log('=== START CREATE CHAT ROOM ===');
 
-  const handleCreateChatRoom = async () => {
-    if (members.length === 0) {
-      Alert.alert('Thông báo', 'Vui lòng chọn ít nhất một thành viên');
+  if (members.length === 0) {
+    console.log('ERROR: No members selected');
+    Alert.alert('Thông báo', 'Vui lòng chọn ít nhất một thành viên');
+    return;
+  }
+
+  console.log('Selected members count:', members.length);
+  console.log('Selected members:', members.map(m => ({ id: m.id, name: m.name })));
+
+  setLoading(true);
+
+  try {
+    const currentUserId = await AsyncStorage.getItem('userId');
+    console.log('Current user ID:', currentUserId);
+
+    if (!currentUserId) {
+      console.log('ERROR: No current user ID found');
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng hiện tại');
       return;
     }
 
-    setLoading(true);
+    const memberIds = members.map(member => member.id);
+    const allMembers = [...memberIds, currentUserId];
+    const isGroupChat = allMembers.length >= 3;
 
-    try {
-      // Lấy current user ID
-      const currentUserId = await AsyncStorage.getItem('userId');
-      if (!currentUserId) {
-        Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng hiện tại');
-        return;
+    let finalChatRoomName = chatRoomName.trim();
+
+    if (!finalChatRoomName) {
+      if (isGroupChat) {
+        const displayNames = members.slice(0, 3).map(m => m.name || 'Unknown');
+        finalChatRoomName = members.length > 3
+          ? `Nhóm ${displayNames.join(', ')}...`
+          : `Nhóm ${displayNames.join(', ')}`;
+      } else {
+        const otherMember = members[0];
+        finalChatRoomName = `Chat với ${otherMember?.name || 'Unknown'}`;
       }
-
-      // Thêm current user vào danh sách members nếu chưa có
-      const allMembers = members.includes(currentUserId) 
-        ? members 
-        : [...members, currentUserId];
-
-      // Tạo tên chat room mặc định nếu không nhập
-      let finalChatRoomName = chatRoomName.trim();
-      if (!finalChatRoomName) {
-        if (isGroup) {
-          const memberNames = selectedMembers.slice(0, 2).map(m => m.name).join(', ');
-          finalChatRoomName = `Nhóm ${memberNames}${selectedMembers.length > 2 ? '...' : ''}`;
-        } else {
-          const memberName = selectedMembers[0]?.name || members[0];
-          finalChatRoomName = `Chat với ${memberName}`;
-        }
-      }
-
-      const newChatRoom: Omit<ChatRoom, 'id'> = {
-        name: finalChatRoomName,
-        isGroup: isGroup,
-        members: allMembers,
-        messageId: [],
-        createdBy: currentUserId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      console.log('Creating chat room:', newChatRoom);
-      
-      // TODO: Thay thế bằng API call thực tế
-       const createdRoom = await addChatRoom(newChatRoom);
-      
-      Alert.alert(
-        'Thành công', 
-        `Đã tạo ${isGroup ? 'nhóm chat' : 'cuộc trò chuyện'} "${finalChatRoomName}"`,
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back()
-          }
-        ]
-      );
-      
-    } catch (error) {
-      console.error('Error creating chat room:', error);
-      Alert.alert('Lỗi', 'Không thể tạo chat room');
-    } finally {
-      setLoading(false);
     }
-  };
 
-  // Render item cho FlatList
-  const renderUserItem = ({ item }: { item: User }) => (
-    <TouchableOpacity
-      style={[
-        styles.userItem,
-        isMemberSelected(item) && styles.selectedUserItem
-      ]}
-      onPress={() => toggleMemberSelection(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.userInfo}>
-        <View style={styles.userAvatar}>
-          <Text style={styles.userAvatarText}>
-            {(item.name || 'U').charAt(0).toUpperCase()}
-          </Text>
+    const newChatRoom = {
+      name: finalChatRoomName,
+      isGroup: isGroupChat,
+      members: allMembers,
+      messageId: [],
+      createdBy: currentUserId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    console.log('Creating chat room with data:', newChatRoom);
+
+    const createdRoom = await addChatRoom(newChatRoom);
+
+    console.log('Chat room created successfully:', createdRoom);
+
+    Alert.alert(
+      'Thành công',
+      `Đã tạo ${isGroupChat ? 'nhóm chat' : 'cuộc trò chuyện'} "${finalChatRoomName}" với ${members.length} thành viên`,
+      [
+        {
+          text: 'OK',
+          onPress: () => router.back()
+        }
+      ]
+    );
+
+  } catch (error) {
+    console.error('Error creating chat room:', error);
+    Alert.alert('Lỗi', 'Không thể tạo chat room. Vui lòng thử lại.');
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  // Render user item with better key and optimization
+  const renderUserItem = useCallback(({ item }: { item: User }) => {
+    const isSelected = isMemberSelected(item);
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.userItem,
+          isSelected && styles.selectedUserItem
+        ]}
+        onPress={() => toggleMemberSelection(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.userInfo}>
+          <View style={styles.userAvatar}>
+            <Text style={styles.userAvatarText}>
+              {(item.name || 'U').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.userDetails}>
+            <Text style={styles.userName}>
+              {item.name || 'Unknown'}
+            </Text>
+            {item.email && (
+              <Text style={styles.userEmail}>{item.email}</Text>
+            )}
+            {item.phone && (
+              <Text style={styles.userPhone}>{item.phone}</Text>
+            )}
+          </View>
         </View>
-        <View style={styles.userDetails}>
-          <Text style={styles.userName}>
-            {item.name}
-          </Text>
-          {item.email && (
-            <Text style={styles.userEmail}>{item.email}</Text>
-          )}
-          {item.phone && (
-            <Text style={styles.userPhone}>{item.phone}</Text>
-          )}
-        </View>
-      </View>
-      <Ionicons
-        name={isMemberSelected(item) ? "checkmark-circle" : "ellipse-outline"}
-        size={24}
-        color={isMemberSelected(item) ? "#4A90E2" : "#ccc"}
-      />
-    </TouchableOpacity>
-  );
+        <Ionicons
+          name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+          size={24}
+          color={isSelected ? "#4A90E2" : "#ccc"}
+        />
+      </TouchableOpacity>
+    );
+  }, [isMemberSelected, toggleMemberSelection]);
+
+  // Remove selected member
+  const removeSelectedMember = useCallback((member: User) => {
+    console.log('Removing member:', member.name);
+    setSelectedMembers(prev => prev.filter(m => m.id !== member.id));
+  }, []);
 
   return (
     <SafeAreaView style={[mainStyles.container, styles.container]}>
@@ -286,19 +319,19 @@ const NewChatRoomScreen: React.FC = () => {
             <Ionicons name="chevron-down" size={20} color="#666" />
           </TouchableOpacity>
           
-          {/* Hiển thị danh sách thành viên đã chọn */}
+          {/* Display selected members */}
           {selectedMembers.length > 0 && (
             <View style={styles.selectedMembersContainer}>
-              {selectedMembers.map((member, index) => (
-                <View key={member.id || index} style={styles.selectedMemberChip}>
+              {selectedMembers.map((member) => (
+                <View key={member.id} style={styles.selectedMemberChip}>
                   <Text style={styles.selectedMemberText}>
-                    {member.name}
+                    {member.name || 'Unknown'}
                   </Text>
                   <TouchableOpacity
-                    onPress={() => toggleMemberSelection(member)}
+                    onPress={() => removeSelectedMember(member)}
                     hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
                   >
-                    <Ionicons name="close-circle" size={16} color="#666" />
+                    <Ionicons name="close-circle" size={16} color="#fff" />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -318,14 +351,14 @@ const NewChatRoomScreen: React.FC = () => {
                   color="#4A90E2" 
                 />
                 <Text style={styles.previewText}>
-                  {isGroup ? `Nhóm chat (${selectedMembers.length} thành viên)` : 'Chat cá nhân'}
+                  {isGroup ? `Nhóm chat (${selectedMembers.length + 1} thành viên)` : 'Chat cá nhân'}
                 </Text>
               </View>
               
               <View style={styles.previewRow}>
                 <Ionicons name="list" size={20} color="#666" />
                 <Text style={styles.previewText}>
-                  Thành viên: {selectedMembers.map(m => m.name).join(', ')}
+                  Thành viên: {selectedMembers.map(m => m.name || 'Unknown').join(', ')}
                 </Text>
               </View>
               
@@ -402,6 +435,7 @@ const NewChatRoomScreen: React.FC = () => {
             style={styles.usersList}
             showsVerticalScrollIndicator={false}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
+            extraData={selectedMembers} // Important: This ensures FlatList re-renders when selectedMembers changes
           />
 
           {/* Modal Footer */}
@@ -574,7 +608,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',
-    marginLeft: -32, // Compensate for close button
+    marginLeft: -32,
   },
   modalSelectedCount: {
     fontSize: 14,
